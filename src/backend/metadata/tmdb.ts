@@ -79,6 +79,7 @@ export function formatTMDBMeta(
     year: media.original_release_date?.getFullYear()?.toString(),
     poster: media.poster,
     type,
+    overview: media.overview,
     seasons: seasons as any,
     seasonData: season
       ? {
@@ -345,10 +346,36 @@ type MediaDetailReturn<T extends TMDBContentTypes> =
       ? TMDBShowData
       : never;
 
+export async function getSeasonDetails(
+  id: string,
+  season: number,
+): Promise<
+  Array<{
+    id: number;
+    name: string;
+    episode_number: number;
+    overview: string;
+    still_path: string | null;
+    air_date: string;
+    season_number: number;
+  }>
+> {
+  const seasonData = await get<TMDBSeason>(`/tv/${id}/season/${season}`);
+  return seasonData.episodes.map((episode) => ({
+    id: episode.id,
+    name: episode.name,
+    episode_number: episode.episode_number,
+    overview: episode.overview,
+    still_path: episode.still_path,
+    air_date: episode.air_date,
+    season_number: season,
+  }));
+}
+
 export async function getMediaDetails<
   T extends TMDBContentTypes,
   TReturn = MediaDetailReturn<T>,
->(id: string, type: T): Promise<TReturn> {
+>(id: string, type: T, fetchEpisodes: boolean = true): Promise<TReturn> {
   if (type === TMDBContentTypes.MOVIE) {
     return get<TReturn>(`/movie/${id}`, {
       append_to_response: "external_ids,credits,release_dates",
@@ -359,24 +386,47 @@ export async function getMediaDetails<
       append_to_response: "external_ids,credits,content_ratings",
     });
 
+    if (!fetchEpisodes) {
+      return {
+        ...showData,
+        episodes: [],
+      } as TReturn;
+    }
+
     // Fetch episodes for each season
     const showDetails = showData as TMDBShowData;
-    const episodePromises = showDetails.seasons.map(async (season) => {
-      const seasonData = await get<TMDBSeason>(
-        `/tv/${id}/season/${season.season_number}`,
-      );
-      return seasonData.episodes.map((episode) => ({
-        id: episode.id,
-        name: episode.name,
-        episode_number: episode.episode_number,
-        overview: episode.overview,
-        still_path: episode.still_path,
-        air_date: episode.air_date,
-        season_number: season.season_number,
-      }));
-    });
+    const allEpisodesBySeason = new Array(showDetails.seasons.length);
+    const seasonsQueue = showDetails.seasons.map((season, index) => ({
+      season,
+      index,
+    }));
+    const concurrencyLimit = 5;
 
-    const allEpisodes = (await Promise.all(episodePromises)).flat();
+    const workers = Array.from(
+      { length: Math.min(concurrencyLimit, seasonsQueue.length) },
+      async () => {
+        while (seasonsQueue.length > 0) {
+          const item = seasonsQueue.shift();
+          if (!item) break;
+          const { season, index } = item;
+          const seasonData = await get<TMDBSeason>(
+            `/tv/${id}/season/${season.season_number}`,
+          );
+          allEpisodesBySeason[index] = seasonData.episodes.map((episode) => ({
+            id: episode.id,
+            name: episode.name,
+            episode_number: episode.episode_number,
+            overview: episode.overview,
+            still_path: episode.still_path,
+            air_date: episode.air_date,
+            season_number: season.season_number,
+          }));
+        }
+      },
+    );
+
+    await Promise.all(workers);
+    const allEpisodes = allEpisodesBySeason.flat();
 
     return {
       ...showData,

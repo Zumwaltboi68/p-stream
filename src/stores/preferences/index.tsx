@@ -38,6 +38,8 @@ export interface PreferencesStore {
   manualSourceSelection: boolean;
   enableDoubleClickToSeek: boolean;
   enableAutoResumeOnPlaybackError: boolean;
+  enableNumberKeySeeking: boolean;
+  enablePauseOverlay: boolean;
   keyboardShortcuts: KeyboardShortcuts;
 
   setEnableThumbnails(v: boolean): void;
@@ -70,6 +72,8 @@ export interface PreferencesStore {
   setManualSourceSelection(v: boolean): void;
   setEnableDoubleClickToSeek(v: boolean): void;
   setEnableAutoResumeOnPlaybackError(v: boolean): void;
+  setEnableNumberKeySeeking(v: boolean): void;
+  setEnablePauseOverlay(v: boolean): void;
   setKeyboardShortcuts(v: KeyboardShortcuts): void;
 }
 
@@ -106,6 +110,8 @@ export const usePreferencesStore = create(
       manualSourceSelection: false,
       enableDoubleClickToSeek: false,
       enableAutoResumeOnPlaybackError: true,
+      enableNumberKeySeeking: true,
+      enablePauseOverlay: false,
       keyboardShortcuts: DEFAULT_KEYBOARD_SHORTCUTS,
       setEnableThumbnails(v) {
         set((s) => {
@@ -260,6 +266,16 @@ export const usePreferencesStore = create(
       setEnableAutoResumeOnPlaybackError(v) {
         set((s) => {
           s.enableAutoResumeOnPlaybackError = v;
+        });
+      },
+      setEnableNumberKeySeeking(v) {
+        set((s) => {
+          s.enableNumberKeySeeking = v;
+        });
+      },
+      setEnablePauseOverlay(v) {
+        set((s) => {
+          s.enablePauseOverlay = v;
         });
       },
       setKeyboardShortcuts(v) {
